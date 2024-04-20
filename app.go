@@ -3,11 +3,25 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"stringinator-go/datastore"
+	"stringinator-go/model"
 	"stringinator-go/service"
 
+	"github.com/go-playground/validator"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
+
+type customValidator struct {
+	validator *validator.Validate
+}
+
+func (cv *customValidator) Validate(i interface{}) error {
+	if err := cv.validator.Struct(i); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	return nil
+}
 
 func main() {
 	e := echo.New()
@@ -24,7 +38,9 @@ func main() {
 		},
 	}))
 
-	var stringmanipulator = service.StringinatorService{Seen_strings: make(map[string]int)}
+	e.Validator = &customValidator{validator: validator.New()}
+	store := datastore.NewInMemoryStore(model.FilePath)
+	var stringmanipulator = service.NewStringinatorService(make(map[string]int), *store)
 
 	e.GET("/", func(c echo.Context) error {
 		return c.HTML(http.StatusOK, `

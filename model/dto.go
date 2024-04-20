@@ -1,5 +1,7 @@
 package model
 
+const FilePath = "storedInputs.json"
+
 type (
 	StringData struct {
 		Input  string `param:"input" query:"input" form:"input" json:"input" xml:"input" validate:"required"`

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"stringinator-go/datastore"
 	"stringinator-go/model"
 	"strings"
 	"testing"
@@ -47,7 +48,7 @@ func Test_StringinatePost(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var stringnatorstruct = newStringinatorService(make(map[string]int))
+			var stringnatorstruct = NewStringinatorService(make(map[string]int), datastore.InMemoryStore{})
 			e := echo.New()
 			req := httptest.NewRequest(http.MethodPost, "/stringinate", bytes.NewBuffer(test.requestBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -93,7 +94,7 @@ func Test_StringinateGet(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var stringnatorstruct = newStringinatorService(make(map[string]int))
+			var stringnatorstruct = NewStringinatorService(make(map[string]int), datastore.InMemoryStore{})
 			e := echo.New()
 			req := httptest.NewRequest(http.MethodGet, test.requestURI, nil)
 			rec := httptest.NewRecorder()
@@ -114,7 +115,7 @@ func Test_StringinateGet(t *testing.T) {
 }
 
 func Test_Stats(t *testing.T) {
-	var stringnatorstruct = newStringinatorService(map[string]int{"hiiw": 2, "hello": 1})
+	var stringnatorstruct = NewStringinatorService(make(map[string]int), datastore.InMemoryStore{})
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/stats", nil)
 	req.Header.Set("Content-Type", "application/json")
