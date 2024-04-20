@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"stringinator-go/interfaces"
+	"stringinator-go/model"
 	"sync"
 )
 
@@ -14,19 +16,38 @@ type InMemoryStore struct {
 }
 
 // NewInMemoryStore creates a new instance of InMemoryStore.
-func NewInMemoryStore(filePath string) *InMemoryStore {
+func NewInMemoryStore(filePath string) interfaces.Store {
 	store := &InMemoryStore{
 		SeenStrings: make(map[string]int),
 		FilePath:    filePath,
 	}
 
-	store.loadFromFile()
+	file, err := os.Open(model.FilePath)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return nil
+	}
+
+	defer file.Close()
+
+	//Read the file content
+	content, err := os.ReadFile(file.Name())
+	if err != nil {
+		fmt.Println("Error reading file:", err)
+		return nil
+	}
+	//Unmarshal JSON data into the in-memory store
+	err = json.Unmarshal(content, &store.SeenStrings)
+	if err != nil {
+		fmt.Println("Error occurred while unmarshaling JSON:", err)
+		return nil
+	}
 
 	return store
 }
 
 // Add input to the in memory storage file
-func (ims *InMemoryStore) AddInput(input string) error {
+func (ims *InMemoryStore) SaveStrings(input string) error {
 	ims.Mutex.Lock()
 	defer ims.Mutex.Unlock()
 
@@ -37,47 +58,6 @@ func (ims *InMemoryStore) AddInput(input string) error {
 	}
 
 	//Save data to file after each update.
-	err := ims.SaveToFile()
-
-	if err != nil {
-		fmt.Println("Error occurred while adding seen string:,", err)
-		return err
-	}
-	return nil
-}
-
-// loadFromFile loads data from the storage file into the in- memory store.
-func (ims *InMemoryStore) loadFromFile() {
-	//Open the file
-	file, err := os.Open(ims.FilePath)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-
-	defer file.Close()
-
-	//Read the file content
-	content, err := os.ReadFile(file.Name())
-	if err != nil {
-		fmt.Println("Error reading file:", err)
-		return
-	}
-
-	stringmap := make(map[string]int)
-	//Unmarshal JSON data into the in-memory store
-	err = json.Unmarshal(content, &stringmap)
-	if err != nil {
-		fmt.Println("Error occurred while unmarshaling JSON:", err)
-		return
-	}
-
-	ims.SeenStrings = stringmap
-}
-
-// SaveToFile saves the in-memory data to the persistent storage file.
-func (ims *InMemoryStore) SaveToFile() error {
-
 	//Marshal the data to JSON
 	jsonContent, err := json.Marshal(ims.SeenStrings)
 	if err != nil {
@@ -96,12 +76,33 @@ func (ims *InMemoryStore) SaveToFile() error {
 }
 
 // Get Seen strings as map from the in memory data storage file.
-func (ims *InMemoryStore) GetSeenStrings() map[string]int {
+func (ims *InMemoryStore) GetStrings() (map[string]int, error) {
 	ims.Mutex.Lock()
 	defer ims.Mutex.Unlock()
 
-	ims.loadFromFile()
+	//Open the file
+	file, err := os.Open(model.FilePath)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return nil, err
+	}
 
-	return ims.SeenStrings
+	defer file.Close()
+
+	//Read the file content
+	content, err := os.ReadFile(file.Name())
+	if err != nil {
+		fmt.Println("Error reading file:", err)
+		return nil, err
+	}
+
+	//Unmarshal JSON data into the in-memory store
+	err = json.Unmarshal(content, &ims.SeenStrings)
+	if err != nil {
+		fmt.Println("Error occurred while unmarshaling JSON:", err)
+		return nil, err
+	}
+
+	return ims.SeenStrings, err
 
 }

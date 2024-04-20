@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"stringinator-go/datastore"
@@ -48,7 +49,8 @@ func Test_StringinatePost(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var stringnatorstruct = NewStringinatorService(make(map[string]int), datastore.InMemoryStore{})
+			store := datastore.NewTempIms(make(map[string]int))
+			var stringnatorstruct = NewStringinatorService(store)
 			e := echo.New()
 			req := httptest.NewRequest(http.MethodPost, "/stringinate", bytes.NewBuffer(test.requestBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -56,15 +58,10 @@ func Test_StringinatePost(t *testing.T) {
 			// Create a response recorder to record the response
 			rec := httptest.NewRecorder()
 
-			// Call the handler function directly
 			c := e.NewContext(req, rec)
 			stringnatorstruct.Stringinate(c)
 
 			assert.Equal(t, test.expectedResponseCode, rec.Code)
-			// Check the response status code
-			if rec.Code != test.expectedResponseCode {
-				t.Errorf("expected status OK; got %d", rec.Code)
-			}
 
 			if rec.Body.String() != "null" {
 				jsonstr, _ := json.Marshal(test.expectedresponseStruct)
@@ -94,7 +91,8 @@ func Test_StringinateGet(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var stringnatorstruct = NewStringinatorService(make(map[string]int), datastore.InMemoryStore{})
+			store := datastore.NewTempIms(make(map[string]int))
+			var stringnatorstruct = NewStringinatorService(store)
 			e := echo.New()
 			req := httptest.NewRequest(http.MethodGet, test.requestURI, nil)
 			rec := httptest.NewRecorder()
@@ -102,6 +100,7 @@ func Test_StringinateGet(t *testing.T) {
 			stringnatorstruct.Stringinate(c)
 
 			assert.Equal(t, test.expectedResponseCode, rec.Code)
+			fmt.Println(rec.Code)
 
 			if rec.Body.String() != "null" {
 				jsonstr, _ := json.Marshal(test.expectedresponseStruct)
@@ -115,7 +114,9 @@ func Test_StringinateGet(t *testing.T) {
 }
 
 func Test_Stats(t *testing.T) {
-	var stringnatorstruct = NewStringinatorService(make(map[string]int), datastore.InMemoryStore{})
+
+	store := datastore.NewTempIms(map[string]int{"hiiw": 3, "hello world": 1})
+	var stringnatorstruct = NewStringinatorService(store)
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/stats", nil)
 	req.Header.Set("Content-Type", "application/json")
@@ -129,7 +130,7 @@ func Test_Stats(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var expected = model.Statistics{Mostoccurred: []string{"hiiw"}, LongestInput: "hello"}
+	var expected = model.Statistics{Mostoccurred: []string{"hiiw"}, LongestInput: "hello world"}
 
 	jsonstr, _ := json.Marshal(expected)
 

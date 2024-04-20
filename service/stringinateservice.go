@@ -1,8 +1,9 @@
 package service
 
 import (
+	"fmt"
 	"net/http"
-	"stringinator-go/datastore"
+	"stringinator-go/interfaces"
 	"stringinator-go/model"
 	"stringinator-go/validator"
 
@@ -10,54 +11,63 @@ import (
 )
 
 type StringinatorService struct {
-	SeenStrings map[string]int
-	Ims         datastore.InMemoryStore
+	store interfaces.Store
 }
 
-var NewStringinatorService = func(SeenStrings map[string]int, ims datastore.InMemoryStore) *StringinatorService {
+var NewStringinatorService = func(store interfaces.Store) *StringinatorService {
 	return &StringinatorService{
-		SeenStrings: SeenStrings,
-		Ims:         ims,
+		store: store,
 	}
 
 }
 
 // This method accepts string input and return back the most occurred character from the given input and its number of occurances.
 func (s *StringinatorService) Stringinate(c echo.Context) (err error) {
-
-	var request_input string
+	var requestInput string
 	if c.Request().Method == "GET" {
-		query, err := validator.ValidateQueryParam(c)
+		queryparam, err := validator.ValidateQueryParam(c)
 		if err != nil {
+			c.Logger().Error("invalid Query param", err)
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
-		request_input = query
+		requestInput = queryparam
 	} else {
-		request_data, err := validator.ValidateRequestBody(c)
+		requestData, err := validator.ValidateRequestBody(c)
 		if err != nil {
+			c.Logger().Error("invalid Request body: ", err)
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
-		request_input = request_data.Input
-
+		requestInput = requestData.Input
 	}
 
-	// Add input to temporary data store
-	s.remember(request_input)
+	// Add input to data store
+	err = s.store.SaveStrings(requestInput)
+	if err != nil {
+		c.Logger().Error("error while saving input", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-	// Add input to persistent data store
-	s.Ims.AddInput(request_input)
-	result := findMostOccurredChar(request_input)
+	result := findMostOccurredChar(requestInput)
 	return c.JSON(http.StatusOK, result)
 }
 
-// This method return statistics from temporary ims about all strings the server has seen,
+// This method return statistics from temporary/persistent ims about all strings the server has seen,
 // including the number of times each input has been received along with the longest and most popular strings etc.
 func (S *StringinatorService) Stats(c echo.Context) (err error) {
+
+	seenStrings, err := S.store.GetStrings()
+
+	if err != nil {
+		c.Logger().Error("error while retrieving stored inputs", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
 	max := 0
 	longest := 0
 	longestStr := ""
 	statistics := model.Statistics{}
-	for k, v := range S.SeenStrings {
+
+	for k, v := range seenStrings {
 		if v > max {
 			max = v
 		}
@@ -68,7 +78,7 @@ func (S *StringinatorService) Stats(c echo.Context) (err error) {
 		}
 	}
 
-	for k, v := range S.SeenStrings {
+	for k, v := range seenStrings {
 		if v == max {
 			statistics.Mostoccurred = append(statistics.Mostoccurred, k)
 		}
@@ -76,50 +86,11 @@ func (S *StringinatorService) Stats(c echo.Context) (err error) {
 
 	statistics.LongestInput = longestStr
 	return c.JSON(http.StatusOK, statistics)
-}
-
-// This method return statistics from temporary ims about all strings the server has seen,
-// including the number of times each input has been received along with the longest and most popular strings etc.
-func (S *StringinatorService) StatsFromIms(c echo.Context) (err error) {
-	SeenStringMap := S.Ims.GetSeenStrings()
-	max := 0
-	longest := 0
-	longestStr := ""
-	statistics := model.Statistics{}
-
-	//Find the maximum number of occurance and the longest input
-	for k, v := range SeenStringMap {
-		if v > max {
-			max = v
-		}
-
-		if len(k) > longest {
-			longest = len(k)
-			longestStr = k
-		}
-	}
-
-	for k, v := range SeenStringMap {
-		if v == max {
-			statistics.Mostoccurred = append(statistics.Mostoccurred, k)
-		}
-	}
-
-	statistics.LongestInput = longestStr
-	return c.JSON(http.StatusOK, statistics)
-}
-
-// This method used to store inputs to temporary in memory data store.
-func (s *StringinatorService) remember(input string) {
-	if s.SeenStrings[input] == 0 {
-		s.SeenStrings[input] = 1
-	} else {
-		s.SeenStrings[input] += 1
-	}
 }
 
 // This method returns most occurred character and its count and error
 func findMostOccurredChar(str string) []model.CharCount {
+	fmt.Println("inside it")
 	occurmap := make(map[rune]int)
 	var result []model.CharCount
 	max := 0

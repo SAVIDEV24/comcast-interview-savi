@@ -4,6 +4,7 @@ import (
 	"errors"
 	"stringinator-go/model"
 
+	"github.com/go-playground/validator"
 	"github.com/labstack/echo/v4"
 )
 
@@ -20,15 +21,16 @@ func ValidateQueryParam(c echo.Context) (string, error) {
 
 // This method validates the request body passed to stringinate POST method.
 func ValidateRequestBody(c echo.Context) (*model.StringData, error) {
-	request_data := new(model.StringData)
-	if err := c.Bind(request_data); err != nil {
+	requestData := new(model.StringData)
+	if err := c.Bind(requestData); err != nil {
 		return nil, err
 	}
 
-	// Validate the request_data struct
-	err := c.Validate(request_data)
+	// Create a new validator instance
+	validate := validator.New()
+	err := validate.Struct(requestData)
 	if err != nil {
 		return nil, err
 	}
-	return request_data, nil
+	return requestData, nil
 }
