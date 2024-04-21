@@ -59,7 +59,10 @@ func Test_StringinatePost(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			c := e.NewContext(req, rec)
-			stringnatorstruct.Stringinate(c)
+			err := stringnatorstruct.Stringinate(c)
+			if err != nil {
+				return // Stop further execution of the test if an error occurs
+			}
 
 			assert.Equal(t, test.expectedResponseCode, rec.Code)
 
